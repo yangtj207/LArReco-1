@@ -107,7 +107,8 @@ namespace lar_nd_reco
 void CreateGeometry(const Parameters &parameters, const Pandora *const pPrimaryPandora)
 {
     // Get the geometry info from the input root file
-    TFile fileSource(parameters.m_inputFileName.c_str(), "READ");
+    //TFile fileSource(parameters.m_inputFileName.c_str(), "READ");
+    TFile fileSource("geometry.root", "READ");
     TGeoManager *pEDepSimGeo = dynamic_cast<TGeoManager *>(fileSource.Get("EDepSimGeometry"));
 
     if (!pEDepSimGeo)
@@ -118,7 +119,7 @@ void CreateGeometry(const Parameters &parameters, const Pandora *const pPrimaryP
 
     // Start by looking at the top level volume and move down to the one we need
     std::string name;
-    const std::string neededNode(parameters.m_geometryVolName + "_PV_0");
+    const std::string neededNode(parameters.m_geometryVolName + "_0");
     TGeoNode *pCurrentNode = pEDepSimGeo->GetCurrentNode();
     bool foundNode(false);
 
