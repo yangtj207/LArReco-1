@@ -452,7 +452,8 @@ int GetNuanceCode(const std::string &reaction);
  *
  *  @return vector of LArVoxels
  */
-LArVoxelList MakeVoxels(const TG4HitSegment &g4Hit, const LArGrid &grid, const Parameters &parameters);
+//LArVoxelList MakeVoxels(const TG4HitSegment &g4Hit, const LArGrid &grid, const Parameters &parameters);
+LArVoxelList MakeVoxels(float startx, float starty, float startz, float endx, float endy, float endz, float energy, int g4id, const LArGrid &grid, const Parameters &parameters);
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
