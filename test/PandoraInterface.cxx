@@ -33,6 +33,7 @@
 #include "larpandoracontent/LArPlugins/LArRotationalTransformationPlugin.h"
 
 #include "PandoraInterface.h"
+#include "LArSED.h"
 
 #ifdef MONITORING
 #include "TApplication.h"
@@ -247,6 +248,8 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
     TFile fileSource(parameters.m_inputFileName.c_str(), "READ");
     //TTree *pEDepSimTree = dynamic_cast<TTree *>(fileSource.Get("EDepSimEvents"));
     TTree *ndsim = dynamic_cast<TTree *>(fileSource.Get("simdump/ndsim"));
+
+
     //if (!pEDepSimTree)
     if (!ndsim)
     {
@@ -256,30 +259,7 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
 
 //    TG4Event *pEDepSimEvent(nullptr);
 //    pEDepSimTree->SetBranchAddress("Event", &pEDepSimEvent);
-
-    std::vector<float>   *sed_startx = 0;
-    std::vector<float>   *sed_starty = 0;
-    std::vector<float>   *sed_startz = 0;
-    std::vector<float>   *sed_endx = 0;
-    std::vector<float>   *sed_endy = 0;
-    std::vector<float>   *sed_endz = 0;
-    std::vector<float>   *sed_energy = 0;
-    std::vector<std::string>  *sed_det = 0;
-    std::vector<int>     *sed_id = 0;
-    std::vector<int>     *mcp_id = 0;
-    std::vector<float>   *mcp_energy = 0;
-
-    ndsim->SetBranchAddress("sed_startx", &sed_startx);
-    ndsim->SetBranchAddress("sed_starty", &sed_starty);
-    ndsim->SetBranchAddress("sed_startz", &sed_startz);
-    ndsim->SetBranchAddress("sed_endx",   &sed_endx);
-    ndsim->SetBranchAddress("sed_endy",   &sed_endy);
-    ndsim->SetBranchAddress("sed_endz",   &sed_endz);
-    ndsim->SetBranchAddress("sed_energy", &sed_energy);
-    ndsim->SetBranchAddress("sed_det",    &sed_det);
-    ndsim->SetBranchAddress("sed_id",     &sed_id);
-    ndsim->SetBranchAddress("mcp_id",     &mcp_id);
-    ndsim->SetBranchAddress("mcp_energy", &mcp_energy);
+    LArSED larsed(ndsim);
 
     // Factory for creating LArCaloHits
     lar_content::LArCaloHitFactory m_larCaloHitFactory;
@@ -324,14 +304,13 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
           
 //        if (!pEDepSimEvent)
 //            return;
-
         int hitCounter(0);
 
         // Create MCParticles from Geant4 trajectories
         //const MCParticleEnergyMap MCEnergyMap = CreateMCParticles(*pEDepSimEvent, pPrimaryPandora, parameters);
         MCParticleEnergyMap MCEnergyMap;
-        for (size_t imcp = 0; imcp<mcp_id->size(); ++imcp){
-          MCEnergyMap[(*mcp_id)[imcp]] = (*mcp_energy)[imcp];
+        for (size_t imcp = 0; imcp<larsed.mcp_id->size(); ++imcp){
+          MCEnergyMap[(*larsed.mcp_id)[imcp]] = (*larsed.mcp_energy)[imcp];
         }
         // Loop over (EDep) hits, which are stored in the hit segment detectors.
         // Only process hits from the detector we are interested in
@@ -348,17 +327,10 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
 //            std::cout << "                                 " << std::endl;
         LArVoxelList voxelList;
         
-        for (size_t ised = 0; ised<sed_det->size(); ++ised){
+        for (size_t ised = 0; ised<larsed.sed_det->size(); ++ised){
           
-          if ((*sed_det)[ised] == "volTPCActive"){
-            LArVoxelList currentVoxelList = MakeVoxels((*sed_startx)[ised],
-                                                       (*sed_starty)[ised],
-                                                       (*sed_startz)[ised],
-                                                       (*sed_endx)[ised],
-                                                       (*sed_endy)[ised],
-                                                       (*sed_endz)[ised], 
-                                                       (*sed_energy)[ised],
-                                                       (*sed_id)[ised],
+          if ((*larsed.sed_det)[ised] == "volTPCActive"){
+            LArVoxelList currentVoxelList = MakeVoxels(larsed, ised,
                                                        grid, parameters);
 
             for (LArVoxel &voxel : currentVoxelList)
@@ -377,7 +349,7 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
           }
         }
         //std::cout << "Produced " << voxelList.size() << " voxels from " << detector->second.size() << " hit segments." << std::endl;
-        std::cout << "Produced " << voxelList.size() << " voxels from " << sed_det->size() << " hit segments." << std::endl;
+        std::cout << "Produced " << voxelList.size() << " voxels from " << larsed.sed_det->size() << " hit segments." << std::endl;
 
         // Merge voxels with the same IDs
         LArVoxelList mergedVoxels = MergeSameVoxels(voxelList);
@@ -694,19 +666,22 @@ int GetNuanceCode(const std::string &reaction)
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 //LArVoxelList MakeVoxels(const TG4HitSegment &g4Hit, const LArGrid &grid, const Parameters &parameters)
-  LArVoxelList MakeVoxels(float startx, 
-                          float starty, 
-                          float startz,
-                          float endx,  
-                          float endy,  
-                          float endz,  
-                          float energy,
-                          int   g4id,
+  LArVoxelList MakeVoxels(const LArSED & larsed,
+                          int ised,
                           const LArGrid &grid, 
                           const Parameters &parameters)
 {
     // Code based on https://github.com/chenel/larcv2/tree/edepsim-formattruth/larcv/app/Supera/Voxelize.cxx
     // which is made available under the MIT license (which is fully compatible with Pandora's GPLv3 license).
+
+    float startx = (*larsed.sed_startx)[ised];
+    float starty = (*larsed.sed_starty)[ised];
+    float startz = (*larsed.sed_startz)[ised];
+    float endx = (*larsed.sed_endx)[ised];
+    float endy = (*larsed.sed_endy)[ised];
+    float endz = (*larsed.sed_endz)[ised];
+    float energy = (*larsed.sed_energy)[ised];
+    int g4id = std::abs((*larsed.sed_id)[ised]);
 
     LArVoxelList currentVoxelList;
 
