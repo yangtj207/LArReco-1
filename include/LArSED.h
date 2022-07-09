@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Fri Jul  8 13:24:04 2022 by ROOT version 6.22/08
+// Fri Jul  8 21:51:49 2022 by ROOT version 6.22/08
 // from TTree ndsim/ND simulation tree
 // found on file: simdump.root
 //////////////////////////////////////////////////////////
@@ -25,6 +25,9 @@ public :
 // Fixed size dimensions of array or collections stored in the TTree if any.
 
    // Declaration of leaf types
+   Int_t           run;
+   Int_t           subrun;
+   Int_t           event;
    vector<int>     *nuPDG;
    vector<int>     *ccnc;
    vector<int>     *mode;
@@ -49,7 +52,7 @@ public :
    vector<int>     *mcp_id;
    vector<int>     *mcp_mother;
    vector<int>     *mcp_pdg;
-   vector<int>     *mcp_mcid;
+   vector<int>     *mcp_nuid;
    vector<float>   *mcp_energy;
    vector<float>   *mcp_px;
    vector<float>   *mcp_py;
@@ -72,6 +75,9 @@ public :
    vector<string>  *sed_det;
 
    // List of branches
+   TBranch        *b_run;   //!
+   TBranch        *b_subrun;   //!
+   TBranch        *b_event;   //!
    TBranch        *b_nuPDG;   //!
    TBranch        *b_ccnc;   //!
    TBranch        *b_mode;   //!
@@ -96,7 +102,7 @@ public :
    TBranch        *b_mcp_id;   //!
    TBranch        *b_mcp_mother;   //!
    TBranch        *b_mcp_pdg;   //!
-   TBranch        *b_mcp_mcid;   //!
+   TBranch        *b_mcp_nuid;   //!
    TBranch        *b_mcp_energy;   //!
    TBranch        *b_mcp_px;   //!
    TBranch        *b_mcp_py;   //!
@@ -120,11 +126,9 @@ public :
 
    LArSED(TTree *tree=0);
    virtual ~LArSED();
-   //virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
    virtual void     Init(TTree *tree);
-   //virtual void     Loop();
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
 };
@@ -205,7 +209,7 @@ void LArSED::Init(TTree *tree)
    mcp_id = 0;
    mcp_mother = 0;
    mcp_pdg = 0;
-   mcp_mcid = 0;
+   mcp_nuid = 0;
    mcp_energy = 0;
    mcp_px = 0;
    mcp_py = 0;
@@ -232,6 +236,9 @@ void LArSED::Init(TTree *tree)
    fCurrent = -1;
    fChain->SetMakeClass(1);
 
+   fChain->SetBranchAddress("run", &run, &b_run);
+   fChain->SetBranchAddress("subrun", &subrun, &b_subrun);
+   fChain->SetBranchAddress("event", &event, &b_event);
    fChain->SetBranchAddress("nuPDG", &nuPDG, &b_nuPDG);
    fChain->SetBranchAddress("ccnc", &ccnc, &b_ccnc);
    fChain->SetBranchAddress("mode", &mode, &b_mode);
@@ -256,7 +263,7 @@ void LArSED::Init(TTree *tree)
    fChain->SetBranchAddress("mcp_id", &mcp_id, &b_mcp_id);
    fChain->SetBranchAddress("mcp_mother", &mcp_mother, &b_mcp_mother);
    fChain->SetBranchAddress("mcp_pdg", &mcp_pdg, &b_mcp_pdg);
-   fChain->SetBranchAddress("mcp_mcid", &mcp_mcid, &b_mcp_mcid);
+   fChain->SetBranchAddress("mcp_nuid", &mcp_nuid, &b_mcp_nuid);
    fChain->SetBranchAddress("mcp_energy", &mcp_energy, &b_mcp_energy);
    fChain->SetBranchAddress("mcp_px", &mcp_px, &b_mcp_px);
    fChain->SetBranchAddress("mcp_py", &mcp_py, &b_mcp_py);
@@ -298,11 +305,4 @@ void LArSED::Show(Long64_t entry)
    if (!fChain) return;
    fChain->Show(entry);
 }
-//Int_t LArSED::Cut(Long64_t entry)
-//{
-//// This function may be called from Loop.
-//// returns  1 if entry is accepted.
-//// returns -1 otherwise.
-//   return 1;
-//}
 #endif // #ifdef LArSED_cxx
