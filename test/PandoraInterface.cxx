@@ -312,6 +312,7 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
         for (size_t imcp = 0; imcp<larsed.mcp_id->size(); ++imcp){
           MCEnergyMap[(*larsed.mcp_id)[imcp]] = (*larsed.mcp_energy)[imcp];
         }
+        CreateMCParticles(larsed, pPrimaryPandora, parameters);
         // Loop over (EDep) hits, which are stored in the hit segment detectors.
         // Only process hits from the detector we are interested in
 //        for (TG4HitSegmentDetectors::iterator detector = pEDepSimEvent->SegmentDetectors.begin();
@@ -457,6 +458,93 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
 
 
 //------------------------------------------------------------------------------------------------------------------------------------------
+void CreateMCParticles(const LArSED & larsed, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters){
+
+  lar_content::LArMCParticleFactory mcParticleFactory;
+
+  int nuidoffset = 100000000;
+  
+  // Create MC neutrinos
+  for (size_t i = 0; i<larsed.nuPDG->size(); ++i){
+    int neutrinoID = nuidoffset + i;
+    int neutrinoPDG = (*larsed.nuPDG)[i];
+    int nuanceCode = GetNuanceCode((*larsed.ccnc)[i], (*larsed.mode)[i]);
+    TLorentzVector neutrinoVtx((*larsed.nuvtxx)[i],
+                               (*larsed.nuvtxy)[i],
+                               (*larsed.nuvtxz)[i],
+                               (*larsed.t0)[i]);
+    TLorentzVector neutrinoP4((*larsed.enu)[i]*(*larsed.nu_dcosx)[i],
+                              (*larsed.enu)[i]*(*larsed.nu_dcosy)[i],
+                              (*larsed.enu)[i]*(*larsed.nu_dcosz)[i],
+                              (*larsed.enu)[i]);
+    lar_content::LArMCParticleParameters mcNeutrinoParameters;
+    mcNeutrinoParameters.m_nuanceCode = nuanceCode;
+    mcNeutrinoParameters.m_process = lar_content::MC_PROC_INCIDENT_NU;
+    mcNeutrinoParameters.m_energy = neutrinoP4.E();
+    mcNeutrinoParameters.m_momentum = pandora::CartesianVector(neutrinoP4.Px(), neutrinoP4.Py(), neutrinoP4.Pz());
+    mcNeutrinoParameters.m_vertex = pandora::CartesianVector(neutrinoVtx.X(), neutrinoVtx.Y(), neutrinoVtx.Z());
+    mcNeutrinoParameters.m_endpoint = pandora::CartesianVector(neutrinoVtx.X(), neutrinoVtx.Y(), neutrinoVtx.Z());
+    mcNeutrinoParameters.m_particleId = neutrinoPDG;
+    mcNeutrinoParameters.m_mcParticleType = pandora::MC_3D;
+    mcNeutrinoParameters.m_pParentAddress = (void *)((intptr_t)neutrinoID);
+    PANDORA_THROW_RESULT_IF(pandora::STATUS_CODE_SUCCESS, !=, PandoraApi::MCParticle::Create(*pPrimaryPandora, mcNeutrinoParameters, mcParticleFactory));
+  }
+  
+  // Create MC particles
+  for (size_t i = 0; i<larsed.mcp_id->size(); ++i){
+    
+    // LArMCParticle parameters
+    lar_content::LArMCParticleParameters mcParticleParameters;
+    
+    // Initial momentum and energy in GeV (Geant4 uses MeV)
+    const TLorentzVector initMtm((*larsed.mcp_px)[i]*parameters.m_MeV2GeV,
+                                 (*larsed.mcp_py)[i]*parameters.m_MeV2GeV,
+                                 (*larsed.mcp_pz)[i]*parameters.m_MeV2GeV,
+                                 (*larsed.mcp_energy)[i]*parameters.m_MeV2GeV);
+    const float energy(initMtm.E());
+    mcParticleParameters.m_energy = energy;
+    mcParticleParameters.m_momentum = pandora::CartesianVector(initMtm.X(), initMtm.Y(), initMtm.Z());
+    
+    // Particle codes
+    mcParticleParameters.m_particleId = (*larsed.mcp_pdg)[i];
+    mcParticleParameters.m_mcParticleType = pandora::MC_3D;
+
+    // Neutrino info
+    const int nuid = (*larsed.mcp_nuid)[i];
+    const int neutrinoID = nuid+nuidoffset;
+    mcParticleParameters.m_nuanceCode = GetNuanceCode((*larsed.ccnc)[nuid], (*larsed.mode)[nuid]);
+    
+    // Set unique parent integer address using trackID
+    const int trackID = (*larsed.mcp_id)[i];
+    mcParticleParameters.m_pParentAddress = (void *)((intptr_t)trackID);
+    
+    // Start and end points in cm 
+    mcParticleParameters.m_vertex = pandora::CartesianVector((*larsed.mcp_startx)[i], (*larsed.mcp_starty)[i], (*larsed.mcp_startz)[i]);
+    
+    mcParticleParameters.m_endpoint = pandora::CartesianVector((*larsed.mcp_endx)[i], (*larsed.mcp_endy)[i], (*larsed.mcp_endz)[i]);
+    // Process ID
+    mcParticleParameters.m_process = lar_content::MC_PROC_UNKNOWN;
+    
+    // Create MCParticle
+    PANDORA_THROW_RESULT_IF(pandora::STATUS_CODE_SUCCESS, !=, PandoraApi::MCParticle::Create(*pPrimaryPandora, mcParticleParameters, mcParticleFactory));
+    
+    // Set parent relationships
+    const int parentID = (*larsed.mcp_mother)[i];
+    
+    if (parentID == 0) // link to mc neutrino
+      {
+        PANDORA_THROW_RESULT_IF(pandora::STATUS_CODE_SUCCESS, !=,
+            PandoraApi::SetMCParentDaughterRelationship(*pPrimaryPandora, (void *)((intptr_t)neutrinoID), (void *)((intptr_t)trackID)));
+      }
+    else
+      {
+        PANDORA_THROW_RESULT_IF(pandora::STATUS_CODE_SUCCESS, !=,
+            PandoraApi::SetMCParentDaughterRelationship(*pPrimaryPandora, (void *)((intptr_t)parentID), (void *)((intptr_t)trackID)));
+      }
+  }
+}
+      
+
 /*
 MCParticleEnergyMap CreateMCParticles(const TG4Event &event, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters)
 {
@@ -594,7 +682,58 @@ MCParticleEnergyMap CreateMCParticles(const TG4Event &event, const pandora::Pand
 }
 */
 //------------------------------------------------------------------------------------------------------------------------------------------
+int GetNuanceCode(int ccnc, int mode){
 
+  int code(1000);
+
+  const bool is_cc = (ccnc == 0); // weak charged-current
+  const bool is_nc = (ccnc == 1); // weak neutral-current
+  // const bool is_charm = (reaction.find("charm")    != std::string::npos); // charm production
+  const bool is_qel = (mode == 0);   // quasi-elastic scattering
+  const bool is_dis = (mode == 2);   // deep inelastic scattering
+  const bool is_res = (mode == 1);   // resonance
+  const bool is_cohpi = (mode == 3); // coherent pi
+  const bool is_ve = (mode == 5);  // nu e elastic
+  const bool is_imd = (mode == 6);   // inverse mu decay
+  const bool is_mec = (mode == 10);   // meson exchange current
+  
+  if (is_qel)
+    {
+      code = 0;
+      if (is_cc)
+        code = 1001;
+      else if (is_nc)
+        code = 1002;
+    }
+  else if (is_dis)
+    {
+      code = 2;
+      if (is_cc)
+        code = 1091;
+      else if (is_nc)
+        code = 1092;
+    }
+  else if (is_res)
+    code = 1;
+  else if (is_cohpi)
+    {
+      code = 3;
+      if (is_qel)
+        code = 4;
+    }
+  else if (is_ve)
+    code = 1098;
+  else if (is_imd)
+    code = 1099;
+  else if (is_mec)
+    code = 10;
+  
+  //std::cout << "Reaction " << reaction << " has code = " << code << std::endl;
+  
+  return code;
+}
+
+  /*
 int GetNuanceCode(const std::string &reaction)
 {
     // The GENIE reaction string (also stored by edep-sim) is created using
@@ -663,6 +802,7 @@ int GetNuanceCode(const std::string &reaction)
     return code;
 }
 
+  */
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 //LArVoxelList MakeVoxels(const TG4HitSegment &g4Hit, const LArGrid &grid, const Parameters &parameters)
