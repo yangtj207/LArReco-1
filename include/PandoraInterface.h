@@ -431,7 +431,7 @@ void ProcessEvents(const Parameters &parameters, const pandora::Pandora *const p
  *  @return Map of <trackID, energy> for the MC particles
  */
 //MCParticleEnergyMap CreateMCParticles(const TG4Event &event, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters);
-void CreateMCParticles(const LArSED & larsed, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters);
+void CreateMCParticles(const LArSED & larsed, const pandora::Pandora *const pPrimaryPandora);
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 

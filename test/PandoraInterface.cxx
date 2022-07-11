@@ -312,7 +312,7 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
         for (size_t imcp = 0; imcp<larsed.mcp_id->size(); ++imcp){
           MCEnergyMap[(*larsed.mcp_id)[imcp]] = (*larsed.mcp_energy)[imcp];
         }
-        CreateMCParticles(larsed, pPrimaryPandora, parameters);
+        CreateMCParticles(larsed, pPrimaryPandora);
         // Loop over (EDep) hits, which are stored in the hit segment detectors.
         // Only process hits from the detector we are interested in
 //        for (TG4HitSegmentDetectors::iterator detector = pEDepSimEvent->SegmentDetectors.begin();
@@ -458,7 +458,7 @@ void ProcessEvents(const Parameters &parameters, const Pandora *const pPrimaryPa
 
 
 //------------------------------------------------------------------------------------------------------------------------------------------
-void CreateMCParticles(const LArSED & larsed, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters){
+void CreateMCParticles(const LArSED & larsed, const pandora::Pandora *const pPrimaryPandora){
 
   lar_content::LArMCParticleFactory mcParticleFactory;
 
@@ -496,11 +496,11 @@ void CreateMCParticles(const LArSED & larsed, const pandora::Pandora *const pPri
     // LArMCParticle parameters
     lar_content::LArMCParticleParameters mcParticleParameters;
     
-    // Initial momentum and energy in GeV (Geant4 uses MeV)
-    const TLorentzVector initMtm((*larsed.mcp_px)[i]*parameters.m_MeV2GeV,
-                                 (*larsed.mcp_py)[i]*parameters.m_MeV2GeV,
-                                 (*larsed.mcp_pz)[i]*parameters.m_MeV2GeV,
-                                 (*larsed.mcp_energy)[i]*parameters.m_MeV2GeV);
+    // Initial momentum and energy in GeV
+    const TLorentzVector initMtm((*larsed.mcp_px)[i],
+                                 (*larsed.mcp_py)[i],
+                                 (*larsed.mcp_pz)[i],
+                                 (*larsed.mcp_energy)[i]);
     const float energy(initMtm.E());
     mcParticleParameters.m_energy = energy;
     mcParticleParameters.m_momentum = pandora::CartesianVector(initMtm.X(), initMtm.Y(), initMtm.Z());
