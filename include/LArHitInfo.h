@@ -19,13 +19,23 @@ class LArHitInfo
 {
 public:
     /**
-     *  @brief  Constructor
+     *  @brief  Constructor using TG4HitSegments
      *
      *  @param  g4Hit The Geant4 hit segment (step)
      *  @param  lengthScale Scaling factor to use cm length dimensions
      *  @param  energyScale Scaling factor to use GeV energies
      */
     LArHitInfo(const TG4HitSegment &g4Hit, const float lengthScale, const float energyScale);
+
+    /**
+     *  @brief  Constructor using CartesianVectors
+     *
+     *  @param  g4Hit The Geant4 hit segment (step)
+     *  @param  lengthScale Scaling factor to use cm length dimensions
+     *  @param  energyScale Scaling factor to use GeV energies
+     */
+    LArHitInfo(const pandora::CartesianVector &start, const pandora::CartesianVector &stop, const float energy, const int trackID,
+        const float lengthScale, const float energyScale);
 
     pandora::CartesianVector m_start; ///< Starting point of the hit step
     pandora::CartesianVector m_stop;  ///< End point of the hit step
@@ -57,6 +67,14 @@ inline LArHitInfo::LArHitInfo(const TG4HitSegment &g4Hit, const float lengthScal
     m_trackID = g4Hit.GetContributors()[0];
 }
 
+inline LArHitInfo::LArHitInfo(const pandora::CartesianVector &start, const pandora::CartesianVector &stop, const float energy,
+    const int trackID, const float lengthScale, const float energyScale) :
+    m_start(start * lengthScale),
+    m_stop(stop * lengthScale),
+    m_energy(energy * energyScale),
+    m_trackID(trackID)
+{
+}
 } // namespace lar_nd_reco
 
 #endif

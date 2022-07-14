@@ -13,6 +13,7 @@
 
 #include "LArGrid.h"
 #include "LArHitInfo.h"
+#include "LArSED.h"
 #include "LArVoxel.h"
 
 namespace pandora
@@ -96,7 +97,7 @@ inline Parameters::Parameters() :
     m_inputTreeName("EDepSimEvents"),
     m_geomFileName(""),
     m_geomManagerName("EDepSimGeometry"),
-    m_geometryVolName("volArgonCubeDetector"),
+    m_geometryVolName("volArgonCubeDetector_PV_0"),
     m_sensitiveDetName("ArgonCube"),
     m_nEventsToProcess(-1),
     m_shouldDisplayEventNumber(false),
@@ -152,6 +153,16 @@ void ProcessEDepSimEvents(const Parameters &parameters, const pandora::Pandora *
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 /**
+ *  @brief  Process events using the supplied pandora instance, assuming SED format
+ *
+ *  @param  parameters The application parameters
+ *  @param  pPrimaryPandora The address of the primary pandora instance
+ */
+void ProcessSEDEvents(const Parameters &parameters, const pandora::Pandora *const pPrimaryPandora);
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+/**
  *  @brief  Create MC particles from the Geant4 trajectories, assuming EDepSim format
  *
  *  @param  event The Geant4 event
@@ -165,6 +176,17 @@ MCParticleEnergyMap CreateEDepSimMCParticles(const TG4Event &event, const pandor
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 /**
+ *  @brief  Create MC particles from the Geant4 trajectories, assuming SED format
+ *
+ *  @param  larsed The LArSED data object
+ *  @param  pPrimaryPandora The address of the primary pandora instance
+ *  @param  parameters The application parameters
+ */
+void CreateSEDMCParticles(const LArSED &larsed, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters);
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+/**
  *  @brief  Convert the GENIE neutrino reaction string to a Nuance-like integer code
  *
  *  @param  reaction The neutrino reaction string
@@ -172,6 +194,18 @@ MCParticleEnergyMap CreateEDepSimMCParticles(const TG4Event &event, const pandor
  *  @return The reaction integer code
  */
 int GetNuanceCode(const std::string &reaction);
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ *  @brief  Get Nuance reaction string for SED format
+ *
+ *  @param  ccnc Integer specifying CCNC reaction
+ *  @param  mode Integer specifying general physics mode
+ *
+ *  @return Name of the Nuance reaction
+ */
+std::string GetNuanceReaction(const int ccnc, const int mode);
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -240,10 +274,11 @@ bool ProcessRecoOption(const std::string &recoOption, Parameters &parameters);
  *  @brief  Process the optional data format and geometry input file
  *
  *  @param  formatOption the data format option string
+ *  @param  inputTreeName the name of the input TTree containing the hits
  *  @param  geomFileName the name of the file containing the TGeoManager info
  *  @param  parameters to receive the application parameters
  */
-void ProcessFormatOption(const std::string &formatOption, const std::string &geomFileName, Parameters &parameters);
+void ProcessFormatOption(const std::string &formatOption, const std::string &inputTreeName, const std::string &geomFileName, Parameters &parameters);
 
 /**
  *  @brief  Process list of external, commandline parameters to be passed to specific algorithms
