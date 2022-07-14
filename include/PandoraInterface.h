@@ -12,7 +12,7 @@
 #include "TG4Event.h"
 
 #include "LArGrid.h"
-#include "LArRay.h"
+#include "LArHitInfo.h"
 #include "LArVoxel.h"
 
 namespace pandora
@@ -26,6 +26,7 @@ namespace lar_nd_reco
 {
 
 typedef std::map<int, float> MCParticleEnergyMap;
+typedef std::vector<LArVoxel> LArVoxelList;
 
 /**
  *  @brief  Parameters class
@@ -38,10 +39,22 @@ public:
      */
     Parameters();
 
+    enum LArNDFormat
+    {
+        EDepSim = 0,
+        SED = 1
+    };
+
+    LArNDFormat m_dataFormat; ///< The expected input data format (EDepSim rooTracker or SED ROOT)
+
     std::string m_settingsFile;  ///< The path to the pandora settings file
                                  ///< (mandatory parameter)
     std::string m_inputFileName; ///< The path to the input file containing events
                                  ///< and/or geometry information
+    std::string m_inputTreeName; ///< The optional name of the event TTree
+
+    std::string m_geomFileName;    ///< The ROOT file name containing the TGeoManager info
+    std::string m_geomManagerName; ///< The name of the TGeoManager
 
     std::string m_geometryVolName;  ///< The name of the Geant4 detector placement volume
     std::string m_sensitiveDetName; ///< The name of the Geant4 sensitive hit detector
@@ -67,9 +80,9 @@ public:
     bool m_use3D;     ///< Create 3D LArCaloHits
     bool m_useLArTPC; ///< Create LArTPC LArCaloHits with u,v,w views
 
-    float m_voxelWidth; ///< Voxel box width (cm)
+    float m_voxelWidth;  ///< Voxel box width (cm)
+    float m_lengthScale; ///< The scaling factor to set all lengths to cm
 
-    const float m_mm2cm{0.1};           ///< Geant4 mm to cm conversion
     const float m_MeV2GeV{1e-3};        ///< Geant4 MeV to GeV conversion
     const float m_voxelPathShift{1e-3}; ///< Small path shift to find next voxel
 };
@@ -77,8 +90,14 @@ public:
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 inline Parameters::Parameters() :
+    m_dataFormat(Parameters::LArNDFormat::EDepSim),
     m_settingsFile(""),
     m_inputFileName(""),
+    m_inputTreeName("EDepSimEvents"),
+    m_geomFileName(""),
+    m_geomManagerName("EDepSimGeometry"),
+    m_geometryVolName("volArgonCubeDetector"),
+    m_sensitiveDetName("ArgonCube"),
     m_nEventsToProcess(-1),
     m_shouldDisplayEventNumber(false),
     m_shouldRunAllHitsCosmicReco(true),
@@ -91,10 +110,11 @@ inline Parameters::Parameters() :
     m_printOverallRecoStatus(false),
     m_nEventsToSkip(0),
     m_maxMergedVoxels(-1),
-    m_minVoxelMipEquivE(0.3),
+    m_minVoxelMipEquivE(0.3f),
     m_use3D(true),
     m_useLArTPC(false),
-    m_voxelWidth(0.4f)
+    m_voxelWidth(0.4f),
+    m_lengthScale(0.1f)
 {
 }
 
@@ -122,7 +142,17 @@ void ProcessEvents(const Parameters &parameters, const pandora::Pandora *const p
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- *  @brief  Create MC particles from the Geant4 trajectories
+ *  @brief  Process events using the supplied pandora instance, assuming EDepSim format
+ *
+ *  @param  parameters The application parameters
+ *  @param  pPrimaryPandora The address of the primary pandora instance
+ */
+void ProcessEDepSimEvents(const Parameters &parameters, const pandora::Pandora *const pPrimaryPandora);
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ *  @brief  Create MC particles from the Geant4 trajectories, assuming EDepSim format
  *
  *  @param  event The Geant4 event
  *  @param  pPrimaryPandora The address of the primary pandora instance
@@ -130,7 +160,7 @@ void ProcessEvents(const Parameters &parameters, const pandora::Pandora *const p
  *
  *  @return Map of <trackID, energy> for the MC particles
  */
-MCParticleEnergyMap CreateMCParticles(const TG4Event &event, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters);
+MCParticleEnergyMap CreateEDepSimMCParticles(const TG4Event &event, const pandora::Pandora *const pPrimaryPandora, const Parameters &parameters);
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -146,15 +176,15 @@ int GetNuanceCode(const std::string &reaction);
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 /**
- *  @brief  Make voxels from a given TG4HitSegment (a Geant4 energy deposition step)
+ *  @brief  Make voxels from a given Geant4 energy deposition step
  *
- *  @param  g4Hit The TG4HitSegment
+ *  @param  hitInfo Information about the hit
  *  @param  grid Voxelisation grid
  *  @param  parameters The application parameters
  *
  *  @return vector of LArVoxels
  */
-LArVoxelList MakeVoxels(const TG4HitSegment &g4Hit, const LArGrid &grid, const Parameters &parameters);
+LArVoxelList MakeVoxels(const LArHitInfo &hitInfo, const LArGrid &grid, const Parameters &parameters);
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -205,6 +235,15 @@ void ProcessViewOption(const std::string &viewOption, Parameters &parameters);
  *  @return success
  */
 bool ProcessRecoOption(const std::string &recoOption, Parameters &parameters);
+
+/**
+ *  @brief  Process the optional data format and geometry input file
+ *
+ *  @param  formatOption the data format option string
+ *  @param  geomFileName the name of the file containing the TGeoManager info
+ *  @param  parameters to receive the application parameters
+ */
+void ProcessFormatOption(const std::string &formatOption, const std::string &geomFileName, Parameters &parameters);
 
 /**
  *  @brief  Process list of external, commandline parameters to be passed to specific algorithms
