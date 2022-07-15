@@ -83,7 +83,9 @@ public:
 
     float m_voxelWidth;  ///< Voxel box width (cm)
     float m_lengthScale; ///< The scaling factor to set all lengths to cm
+    float m_energyScale; ///< The scaling factor to set all energies to GeV
 
+    const float m_mm2cm{0.1f};          ///< mm to cm conversion
     const float m_MeV2GeV{1e-3};        ///< Geant4 MeV to GeV conversion
     const float m_voxelPathShift{1e-3}; ///< Small path shift to find next voxel
 };
@@ -115,7 +117,8 @@ inline Parameters::Parameters() :
     m_use3D(true),
     m_useLArTPC(false),
     m_voxelWidth(0.4f),
-    m_lengthScale(0.1f)
+    m_lengthScale(m_mm2cm),
+    m_energyScale(m_MeV2GeV)
 {
 }
 

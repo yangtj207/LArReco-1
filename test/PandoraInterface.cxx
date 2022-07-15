@@ -350,7 +350,7 @@ void ProcessEDepSimEvents(const Parameters &parameters, const Pandora *const pPr
             // Loop over hit segments and create voxels from them
             for (TG4HitSegment &g4Hit : detector->second)
             {
-                const LArHitInfo hitInfo(g4Hit, parameters.m_lengthScale, parameters.m_MeV2GeV);
+                const LArHitInfo hitInfo(g4Hit, parameters.m_lengthScale, parameters.m_energyScale);
                 const LArVoxelList currentVoxelList = MakeVoxels(hitInfo, grid, parameters);
 
                 for (const LArVoxel &voxel : currentVoxelList)
@@ -543,7 +543,7 @@ void ProcessSEDEvents(const Parameters &parameters, const Pandora *const pPrimar
         // Loop over the energy deposits and create voxels
         for (size_t ised = 0; ised < larsed.sed_det->size(); ++ised)
         {
-            if ((*larsed.sed_det)[ised] == parameters.m_sensitiveDetName) // volTPCActive
+            if ((*larsed.sed_det)[ised] == parameters.m_sensitiveDetName) // usually volTPCActive
             {
                 const float startx = (*larsed.sed_startx)[ised];
                 const float starty = (*larsed.sed_starty)[ised];
@@ -557,7 +557,7 @@ void ProcessSEDEvents(const Parameters &parameters, const Pandora *const pPrimar
                 const pandora::CartesianVector start(startx, starty, startz);
                 const pandora::CartesianVector end(endx, endy, endz);
 
-                const LArHitInfo hitInfo(start, end, energy, g4id, parameters.m_lengthScale, parameters.m_MeV2GeV);
+                const LArHitInfo hitInfo(start, end, energy, g4id, parameters.m_lengthScale, parameters.m_energyScale);
                 const LArVoxelList currentVoxelList = MakeVoxels(hitInfo, grid, parameters);
 
                 for (const LArVoxel &voxel : currentVoxelList)
@@ -714,7 +714,7 @@ MCParticleEnergyMap CreateEDepSimMCParticles(const TG4Event &event, const pandor
 
                 neutrinoID = g4Primary.GetTrackId();
                 neutrinoPDG = g4Primary.GetPDGCode();
-                neutrinoP4 = g4Primary.GetMomentum() * parameters.m_MeV2GeV;
+                neutrinoP4 = g4Primary.GetMomentum() * parameters.m_energyScale;
 
                 std::cout << "Neutrino ID = " << neutrinoID << ", PDG = " << neutrinoPDG << ", E = " << neutrinoP4.E()
                           << ", px = " << neutrinoP4.Px() << ", py = " << neutrinoP4.Py() << ", pz = " << neutrinoP4.Pz() << std::endl;
@@ -743,7 +743,7 @@ MCParticleEnergyMap CreateEDepSimMCParticles(const TG4Event &event, const pandor
         lar_content::LArMCParticleParameters mcParticleParameters;
 
         // Initial momentum and energy in GeV (Geant4 uses MeV)
-        const TLorentzVector initMtm(g4Traj.GetInitialMomentum() * parameters.m_MeV2GeV);
+        const TLorentzVector initMtm(g4Traj.GetInitialMomentum() * parameters.m_energyScale);
         const float energy(initMtm.E());
         mcParticleParameters.m_energy = energy;
         mcParticleParameters.m_momentum = pandora::CartesianVector(initMtm.X(), initMtm.Y(), initMtm.Z());
@@ -823,20 +823,24 @@ void CreateSEDMCParticles(const LArSED &larsed, const pandora::Pandora *const pP
         const std::string reaction = GetNuanceReaction((*larsed.ccnc)[i], (*larsed.mode)[i]);
         const int nuanceCode = GetNuanceCode(reaction);
 
-        const TLorentzVector neutrinoVtx((*larsed.nuvtxx)[i] * parameters.m_lengthScale, (*larsed.nuvtxy)[i] * parameters.m_lengthScale,
-            (*larsed.nuvtxz)[i] * parameters.m_lengthScale, (*larsed.t0)[i] * parameters.m_lengthScale);
+        const float nuVtxX = (*larsed.nuvtxx)[i] * parameters.m_lengthScale;
+        const float nuVtxY = (*larsed.nuvtxy)[i] * parameters.m_lengthScale;
+        const float nuVtxZ = (*larsed.nuvtxz)[i] * parameters.m_lengthScale;
 
-        const TLorentzVector neutrinoP4((*larsed.enu)[i] * (*larsed.nu_dcosx)[i] * parameters.m_MeV2GeV,
-            (*larsed.enu)[i] * (*larsed.nu_dcosy)[i] * parameters.m_MeV2GeV,
-            (*larsed.enu)[i] * (*larsed.nu_dcosz)[i] * parameters.m_MeV2GeV, (*larsed.enu)[i] * parameters.m_MeV2GeV);
+        const float nuE = (*larsed.enu)[i] * parameters.m_energyScale;
+        const float nuPx = nuE * (*larsed.nu_dcosx)[i];
+        const float nuPy = nuE * (*larsed.nu_dcosy)[i];
+        const float nuPz = nuE * (*larsed.nu_dcosz)[i];
 
         lar_content::LArMCParticleParameters mcNeutrinoParameters;
         mcNeutrinoParameters.m_nuanceCode = nuanceCode;
         mcNeutrinoParameters.m_process = lar_content::MC_PROC_INCIDENT_NU;
-        mcNeutrinoParameters.m_energy = neutrinoP4.E();
-        mcNeutrinoParameters.m_momentum = pandora::CartesianVector(neutrinoP4.Px(), neutrinoP4.Py(), neutrinoP4.Pz());
-        mcNeutrinoParameters.m_vertex = pandora::CartesianVector(neutrinoVtx.X(), neutrinoVtx.Y(), neutrinoVtx.Z());
-        mcNeutrinoParameters.m_endpoint = pandora::CartesianVector(neutrinoVtx.X(), neutrinoVtx.Y(), neutrinoVtx.Z());
+
+        mcNeutrinoParameters.m_energy = nuE;
+        mcNeutrinoParameters.m_momentum = pandora::CartesianVector(nuPx, nuPy, nuPz);
+        mcNeutrinoParameters.m_vertex = pandora::CartesianVector(nuVtxX, nuVtxY, nuVtxZ);
+        mcNeutrinoParameters.m_endpoint = pandora::CartesianVector(nuVtxX, nuVtxY, nuVtxZ);
+
         mcNeutrinoParameters.m_particleId = neutrinoPDG;
         mcNeutrinoParameters.m_mcParticleType = pandora::MC_3D;
         mcNeutrinoParameters.m_pParentAddress = (void *)((intptr_t)neutrinoID);
@@ -852,11 +856,12 @@ void CreateSEDMCParticles(const LArSED &larsed, const pandora::Pandora *const pP
         lar_content::LArMCParticleParameters mcParticleParameters;
 
         // Initial momentum and energy in GeV
-        const TLorentzVector initMtm((*larsed.mcp_px)[i] * parameters.m_MeV2GeV, (*larsed.mcp_py)[i] * parameters.m_MeV2GeV,
-            (*larsed.mcp_pz)[i] * parameters.m_MeV2GeV, (*larsed.mcp_energy)[i] * parameters.m_MeV2GeV);
-        const float energy(initMtm.E());
+        const float px = (*larsed.mcp_px)[i] * parameters.m_energyScale;
+        const float py = (*larsed.mcp_py)[i] * parameters.m_energyScale;
+        const float pz = (*larsed.mcp_pz)[i] * parameters.m_energyScale;
+        const float energy = (*larsed.mcp_energy)[i] * parameters.m_energyScale;
         mcParticleParameters.m_energy = energy;
-        mcParticleParameters.m_momentum = pandora::CartesianVector(initMtm.X(), initMtm.Y(), initMtm.Z());
+        mcParticleParameters.m_momentum = pandora::CartesianVector(px, py, pz);
 
         // Particle codes
         mcParticleParameters.m_particleId = (*larsed.mcp_pdg)[i];
@@ -873,11 +878,16 @@ void CreateSEDMCParticles(const LArSED &larsed, const pandora::Pandora *const pP
         mcParticleParameters.m_pParentAddress = (void *)((intptr_t)trackID);
 
         // Start and end points in cm
-        mcParticleParameters.m_vertex = pandora::CartesianVector((*larsed.mcp_startx)[i] * parameters.m_lengthScale,
-            (*larsed.mcp_starty)[i] * parameters.m_lengthScale, (*larsed.mcp_startz)[i] * parameters.m_lengthScale);
+        const float startx = (*larsed.mcp_startx)[i] * parameters.m_lengthScale;
+        const float starty = (*larsed.mcp_starty)[i] * parameters.m_lengthScale;
+        const float startz = (*larsed.mcp_startz)[i] * parameters.m_lengthScale;
+        mcParticleParameters.m_vertex = pandora::CartesianVector(startx, starty, startz);
 
-        mcParticleParameters.m_endpoint = pandora::CartesianVector((*larsed.mcp_endx)[i] * parameters.m_lengthScale,
-            (*larsed.mcp_endy)[i] * parameters.m_lengthScale, (*larsed.mcp_endz)[i] * parameters.m_lengthScale);
+        const float endx = (*larsed.mcp_endx)[i] * parameters.m_lengthScale;
+        const float endy = (*larsed.mcp_endy)[i] * parameters.m_lengthScale;
+        const float endz = (*larsed.mcp_endz)[i] * parameters.m_lengthScale;
+        mcParticleParameters.m_endpoint = pandora::CartesianVector(endx, endy, endz);
+
         // Process ID
         mcParticleParameters.m_process = lar_content::MC_PROC_UNKNOWN;
 
@@ -1482,6 +1492,8 @@ void ProcessFormatOption(const std::string &formatOption, const std::string &inp
         parameters.m_geomFileName = geomFileName;
         // All lengths are already in cm, so don't rescale
         parameters.m_lengthScale = 1.0f;
+        // All energies are already in GeV, so don't rescale
+        parameters.m_energyScale = 1.0f;
         // Set expected input TTree name for SED data
         parameters.m_inputTreeName = "simdump/ndsim";
     }
@@ -1492,7 +1504,9 @@ void ProcessFormatOption(const std::string &formatOption, const std::string &inp
         // TGeoManager is stored in the input rooTracker file containing the hits
         parameters.m_geomFileName = parameters.m_inputFileName;
         // All lengths are in mm, so we need to convert them to cm
-        parameters.m_lengthScale = 0.1f;
+        parameters.m_lengthScale = parameters.m_mm2cm;
+        // All energies are in MeV, so we need to convert them to GeV
+        parameters.m_energyScale = parameters.m_MeV2GeV;
     }
 
     // Default input tree name is "EDepSimEvents"
