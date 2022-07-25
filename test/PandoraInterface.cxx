@@ -551,7 +551,7 @@ void ProcessSEDEvents(const Parameters &parameters, const Pandora *const pPrimar
                 const float endx = (*larsed.sed_endx)[ised];
                 const float endy = (*larsed.sed_endy)[ised];
                 const float endz = (*larsed.sed_endz)[ised];
-                const float energy = (*larsed.sed_energy)[ised];
+                const float energy = (*larsed.sed_energy)[ised]*1e-3; //sed_energy is in MeV, convert it to GeV
                 const int g4id = std::abs((*larsed.sed_id)[ised]);
 
                 const pandora::CartesianVector start(startx, starty, startz);
